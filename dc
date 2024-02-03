@@ -1,73 +1,84 @@
-#include <stdio.h>
 #include <gpiod.h>
+#include <stdio.h>
 
-#define IN1_PIN 17
-#define IN2_PIN 18
-#define EN_PIN 27
+#define IN1_PIN 24
+#define IN2_PIN 23
+#define EN_PIN 25
 
-struct gpiod_chip *chip;
-struct gpiod_line_bulk lines;
-
-void startMotor(int direction);
-void setSpeed(int speed);
-void stopMotor();
+void startMotor(struct gpiod_line *in1, struct gpiod_line *in2, int direction);
+void setSpeed(struct gpiod_line *en, int speed);
+void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en);
 
 int main(void) {
-    chip = gpiod_chip_open("/dev/gpiochip0");
+    struct gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0");
     if (!chip) {
-        perror("Error opening GPIO chip");
+        fprintf(stderr, "Error opening GPIO chip\n");
         return 1;
     }
 
-    if (gpiod_chip_get_lines(chip, &lines, IN1_PIN, IN2_PIN, EN_PIN, -1) < 0) {
-        perror("Error getting GPIO lines");
+    struct gpiod_line *in1 = gpiod_chip_get_line(chip, IN1_PIN);
+    struct gpiod_line *in2 = gpiod_chip_get_line(chip, IN2_PIN);
+    struct gpiod_line *en = gpiod_chip_get_line(chip, EN_PIN);
+
+    if (!in1 || !in2 || !en) {
+        fprintf(stderr, "Error getting GPIO lines\n");
         gpiod_chip_close(chip);
         return 1;
     }
 
-    gpiod_chip_claim_bulk_output(&lines, "Motor Control", 0);
+    gpiod_line_request_output(in1, "motor_in1", 0);
+    gpiod_line_request_output(in2, "motor_in2", 0);
+    gpiod_line_request_output(en, "motor_en", 0);
 
+    printf("\n");
     printf("The default speed of the motor is LOW & Forward.....\n");
     printf("r-run l-low h-high e-exit\n");
+    printf("\n");
 
     while (1) {
         char x;
         scanf(" %c", &x);
 
         if (x == 'r') {
-            startMotor(1);
+            startMotor(in1, in2, 1);
         } else if (x == 'l') {
-            setSpeed(25);
+            setSpeed(en, 25);
         } else if (x == 'h') {
-            setSpeed(75);
+            setSpeed(en, 75);
         } else if (x == 'e') {
-            stopMotor();
+            stopMotor(in1, in2, en);
             printf("GPIO Clean up\n");
-            gpiod_chip_close(chip);
-            return 0;
+            break;
         } else {
             printf("<<< wrong data >>>\n");
             printf("please enter the defined data to continue.....\n");
         }
     }
 
+    gpiod_line_release(in1);
+    gpiod_line_release(in2);
+    gpiod_line_release(en);
     gpiod_chip_close(chip);
+
     return 0;
 }
 
-void startMotor(int direction) {
+void startMotor(struct gpiod_line *in1, struct gpiod_line *in2, int direction) {
     if (direction == 1) {
-        gpiod_line_set_value_bulk(&lines, 1, 0, 0);
+        gpiod_line_set_value(in1, 1);
+        gpiod_line_set_value(in2, 0);
         printf("Forward\n");
-    }
+    } 
 }
 
-void setSpeed(int speed) {
-    // Implementation of setting speed using libgpiod
+void setSpeed(struct gpiod_line *en, int speed) {
+    gpiod_line_set_value(en, speed * 255 / 100);  // Scale speed to 0-255 duty cycle
     printf("Speed set to %d%%\n", speed);
 }
 
-void stopMotor() {
-    gpiod_line_set_value_bulk(&lines, 0, 0, 0);
+void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en) {
+    gpiod_line_set_value(in1, 0);
+    gpiod_line_set_value(in2, 0);
+    gpiod_line_set_value(en, 0);
     printf("Motor stopped\n");
 }
