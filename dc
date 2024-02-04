@@ -1,7 +1,6 @@
 #include <gpiod.h>
 #include <stdio.h>
-#include <time.h>
-#include <pthread.h>
+#include <unistd.h>  // Added for usleep
 
 #define IN1_CHIP "gpiochip0"
 #define IN1_LINE 24
@@ -14,7 +13,6 @@
 void startMotor(struct gpiod_line *in1, struct gpiod_line *in2);
 void setSpeed(int speed, struct gpiod_line *en);
 void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en);
-void *setSpeedThread(void *arg);
 
 int main(void) {
     struct gpiod_chip *chip;
@@ -89,9 +87,10 @@ void startMotor(struct gpiod_line *in1, struct gpiod_line *in2) {
 }
 
 void setSpeed(int speed, struct gpiod_line *en) {
-    // Threaded PWM implementation for speed control
-    pthread_t thread;
-    pthread_create(&thread, NULL, setSpeedThread, &speed);
+    // Set PWM duty cycle directly
+    gpiod_line_set_value(en, 1);
+    usleep(speed * 1000);  // Sleep based on the speed (in milliseconds)
+    gpiod_line_set_value(en, 0);
 }
 
 void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en) {
@@ -99,11 +98,4 @@ void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line
     gpiod_line_set_value(in2, 0);
     gpiod_line_set_value(en, 0);
     printf("Motor stopped\n");
-}
-
-// Thread function for PWM generation
-void *setSpeedThread(void *arg) {
-    int *speed = (int *)arg;
-    // ... (same PWM logic as before)
-    return NULL;
 }
