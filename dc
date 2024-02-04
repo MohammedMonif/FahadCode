@@ -17,7 +17,67 @@ void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line
 void *setSpeedThread(void *arg);
 
 int main(void) {
-    // ... (rest of the code remains unchanged)
+    struct gpiod_chip *chip;
+    struct gpiod_line *in1, *in2, *en;
+
+    // Open GPIO chip
+    chip = gpiod_chip_open_by_name(IN1_CHIP);
+    if (!chip) {
+        perror("Failed to open GPIO chip");
+        return 1;
+    }
+
+    // Request GPIO lines
+    in1 = gpiod_chip_get_line(chip, IN1_LINE);
+    in2 = gpiod_chip_get_line(chip, IN2_LINE);
+    en = gpiod_chip_get_line(chip, EN_LINE);
+
+    if (!in1 || !in2 || !en) {
+        perror("Failed to request GPIO lines");
+        return 1;
+    }
+
+    // Set GPIO line directions
+    gpiod_line_request_output(in1, "motor_in1", 0);
+    gpiod_line_request_output(in2, "motor_in2", 0);
+    gpiod_line_request_output(en, "motor_en", 0);
+
+    // Initialize GPIO values
+    gpiod_line_set_value(in1, 0);
+    gpiod_line_set_value(in2, 0);
+    gpiod_line_set_value(en, 0);
+
+    printf("\n");
+    printf("The default speed of the motor is LOW & Forward.....\n");
+    printf("r-run l-low h-high e-exit\n");
+    printf("\n");
+
+    while (1) {
+        char x;
+        scanf(" %c", &x);
+
+        if (x == 'r') {
+            startMotor(in1, in2);
+        } else if (x == 'l' || x == 'h') {
+            int speed = (x == 'l') ? 25 : 75;
+            setSpeed(speed, en);
+        } else if (x == 'e') {
+            stopMotor(in1, in2, en);
+            printf("GPIO Clean up\n");
+            break;  // Exit the loop
+        } else {
+            printf("<<< wrong data >>>\n");
+            printf("please enter the defined data to continue.....\n");
+        }
+    }
+
+    // Cleanup GPIO resources
+    gpiod_line_release(in1);
+    gpiod_line_release(in2);
+    gpiod_line_release(en);
+    gpiod_chip_close(chip);
+
+    return 0;
 }
 
 // Function definitions
