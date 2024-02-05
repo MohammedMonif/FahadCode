@@ -60,3 +60,12 @@ int main() {
 
   return 0;
 }
+2024-02-05 17:36:30 initCheckPermitted: 
++---------------------------------------------------------+
+|Sorry, you don't have permission to run this program.    |
+|Try running as root, e.g. precede the command with sudo. |
++---------------------------------------------------------+
+
+
+pigpio initialisation failed
+
