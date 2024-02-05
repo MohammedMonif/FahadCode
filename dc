@@ -56,14 +56,3 @@ int main() {
 
   return 0;
 }
-
-sudo nano /etc/systemd/system/pigpio.service
-
-[Unit]
-Description=Daemon for pigpio library
-
-[Service]
-ExecStart=/usr/local/bin/pigpiod
-
-[Install]
-WantedBy=multi-user.target
