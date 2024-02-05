@@ -99,3 +99,27 @@ void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line
     gpiod_line_set_value(en, 0);
     printf("Motor stopped\n");
 }
+
+int main(void) {
+    // ... GPIO setup ...
+
+    if (gpioInitialise() < 0) {  // Initialize pigpio
+        perror("Failed to initialize pigpio");
+        return 1;
+    }
+
+    // ... rest of the code ...
+
+    void setSpeed(int speed, struct gpiod_line *en) {
+        int dutyCycle = speed * 255 / 100;
+        gpioPWM(EN_LINE, 1000);  // Set PWM frequency (adjust as needed)
+        gpioWrite(EN_LINE, dutyCycle);
+    }
+
+    // ... rest of the code ...
+
+    gpioTerminate();  // Release pigpio resources
+    gpiod_chip_close(chip);
+
+    return 0;
+}
