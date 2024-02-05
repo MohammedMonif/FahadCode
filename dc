@@ -1,7 +1,6 @@
 #include <gpiod.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <unistd.h>  // Added for usleep
 
 #define IN1_CHIP "gpiochip0"
 #define IN1_LINE 24
@@ -14,15 +13,6 @@
 void startMotor(struct gpiod_line *in1, struct gpiod_line *in2);
 void setSpeed(int speed, struct gpiod_line *en);
 void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en);
-
-// Define GPIO path for PWM control
-#define PWM_PATH "/sys/class/gpio/gpio%d/"
-
-// Function to export a GPIO pin
-void exportGPIO(int pin);
-
-// Function to write a value to a GPIO pin
-void writeGPIO(int pin, int value);
 
 int main(void) {
     struct gpiod_chip *chip;
@@ -62,11 +52,7 @@ int main(void) {
 
     while (1) {
         char x;
-        if (scanf(" %c", &x) != 1) {
-            // Handle invalid input
-            printf("Invalid input. Exiting...\n");
-            break;
-        }
+        scanf(" %c", &x);
 
         if (x == 'r') {
             startMotor(in1, in2);
@@ -101,57 +87,10 @@ void startMotor(struct gpiod_line *in1, struct gpiod_line *in2) {
 }
 
 void setSpeed(int speed, struct gpiod_line *en) {
-    // Ensure the speed is within the valid range
-    if (speed < 0) {
-        speed = 0;
-    } else if (speed > 100) {
-        speed = 100;
-    }
-
-    // Map the speed to the PWM range (0 to 1023)
-    int pwmValue = (speed * 1023) / 100;
-
-    // Set PWM duty cycle
-    char pwmPath[50];
-    sprintf(pwmPath, PWM_PATH, gpiod_line_offset(en));
-    exportGPIO(gpiod_line_offset(en));
-    writeGPIO(gpiod_line_offset(en), 1); // Enable PWM
-
-    FILE *pwmFile = fopen(strcat(pwmPath, "duty_cycle"), "w");
-    if (!pwmFile) {
-        perror("Error opening PWM duty_cycle file");
-        return;
-    }
-
-    fprintf(pwmFile, "%d", pwmValue);
-    fclose(pwmFile);
-
-    printf("Speed set to %d%%\n", speed);
-}
-
-void exportGPIO(int pin) {
-    FILE *exportFile = fopen("/sys/class/gpio/export", "w");
-    if (!exportFile) {
-        perror("Error opening export file");
-        exit(EXIT_FAILURE);
-    }
-
-    fprintf(exportFile, "%d", pin);
-    fclose(exportFile);
-}
-
-void writeGPIO(int pin, int value) {
-    char gpioPath[50];
-    sprintf(gpioPath, "/sys/class/gpio/gpio%d/value", pin);
-
-    FILE *gpioFile = fopen(gpioPath, "w");
-    if (!gpioFile) {
-        perror("Error opening GPIO value file");
-        exit(EXIT_FAILURE);
-    }
-
-    fprintf(gpioFile, "%d", value);
-    fclose(gpioFile);
+    // Set PWM duty cycle directly
+    gpiod_line_set_value(en, 1);
+    usleep(speed * 1000);  // Sleep based on the speed (in milliseconds)
+    gpiod_line_set_value(en, 0);
 }
 
 void stopMotor(struct gpiod_line *in1, struct gpiod_line *in2, struct gpiod_line *en) {
