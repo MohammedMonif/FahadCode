@@ -1,14 +1,61 @@
-#include <gpiod.h>
+#include <wiringPi.h>
 #include <stdio.h>
-#include <unistd.h>  // Added for usleep
 
-#define IN1_CHIP "gpiochip0"
-#define IN1_LINE 24
-#define IN2_CHIP "gpiochip0"
-#define IN2_LINE 23
-#define EN_CHIP "gpiochip0"
-#define EN_LINE 25
+// Define GPIO pins for motor control
+const int IN1 = 24;
+const int IN2 = 23;
+const int ENA = 25;
 
+// Function to start the motor forward
+void startMotor() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+}
+
+// Function to set the motor speed
+void setSpeed(int speed) {
+  pwmWrite(ENA, speed);
+}
+
+// Function to stop the motor
+void stopMotor() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+}
+
+int main() {
+  wiringPiSetup();
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENA, OUTPUT);
+
+  char choice;
+
+  while (1) { // Loop indefinitely
+    printf("Press r for forward, h for high speed, l for low speed, e for stop and exit: ");
+    scanf(" %c", &choice);
+
+    if (choice == 'r') {
+      startMotor();
+      printf("Motor started forward\n");
+    } else if (choice == 'h') {
+      setSpeed(255);  // Adjust high speed value as needed
+      printf("Motor set to high speed\n");
+    } else if (choice == 'l') {
+      setSpeed(50);   // Adjust low speed value as needed
+      printf("Motor set to low speed\n");
+    } else if (choice == 'e') {
+      stopMotor();
+      printf("Motor stopped\n");
+      return 0; // Exit the program
+    } else {
+      printf("Invalid choice\n");
+    }
+  }
+
+  return 0;
+}
 // Function prototypes
 void startMotor(struct gpiod_line *in1, struct gpiod_line *in2);
 void setSpeed(int speed, struct gpiod_line *en);
