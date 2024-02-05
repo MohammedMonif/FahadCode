@@ -2,9 +2,9 @@
 #include <stdio.h>
 
 // Define GPIO pins for motor control (adjust as needed)
-const int IN1 = 17;
-const int IN2 = 27;
-const int ENA = 22;
+const int IN1 = 24;
+const int IN2 = 23;
+const int ENA = 25;
 
 // Function to start the motor forward
 void startMotor() {
