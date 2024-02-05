@@ -43,7 +43,7 @@ int main() {
       startMotor();
       printf("Motor started forward\n");
     } else if (choice == 'h') {
-      setSpeed(255);  // Adjust high speed value as needed
+      setSpeed(100);  // Adjust high speed value as needed
       printf("Motor set to high speed\n");
     } else if (choice == 'l') {
       setSpeed(50);   // Adjust low speed value as needed
