@@ -1,38 +1,41 @@
-#include <wiringPi.h>
+#include <pigpio.h>
 #include <stdio.h>
 
-// Define GPIO pins for motor control
-const int IN1 = 24;
-const int IN2 = 23;
-const int ENA = 25;
+// Define GPIO pins for motor control (adjust as needed)
+const int IN1 = 17;
+const int IN2 = 27;
+const int ENA = 22;
 
 // Function to start the motor forward
 void startMotor() {
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
+  gpioWrite(IN1, 1);
+  gpioWrite(IN2, 0);
 }
 
 // Function to set the motor speed
 void setSpeed(int speed) {
-  pwmWrite(ENA, speed);
+  gpioPWM(ENA, speed);
 }
 
 // Function to stop the motor
 void stopMotor() {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
+  gpioWrite(IN1, 0);
+  gpioWrite(IN2, 0);
 }
 
 int main() {
-  wiringPiSetup();
+  if (gpioInitialise() < 0) {
+    fprintf(stderr, "pigpio initialisation failed\n");
+    return 1;
+  }
 
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(ENA, OUTPUT);
+  gpioSetMode(IN1, PI_OUTPUT);
+  gpioSetMode(IN2, PI_OUTPUT);
+  gpioSetMode(ENA, PI_OUTPUT);
 
   char choice;
 
-  while (1) { // Loop indefinitely
+  while (1) {
     printf("Press r for forward, h for high speed, l for low speed, e for stop and exit: ");
     scanf(" %c", &choice);
 
@@ -48,7 +51,8 @@ int main() {
     } else if (choice == 'e') {
       stopMotor();
       printf("Motor stopped\n");
-      return 0; // Exit the program
+      gpioTerminate();
+      return 0;  // Exit the program
     } else {
       printf("Invalid choice\n");
     }
