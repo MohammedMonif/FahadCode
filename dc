@@ -60,3 +60,8 @@ int main() {
 
   return 0;
 }
+
+ps aux | grep pigpio
+sudo chown root:pigpio /var/run/pigpio.pid
+sudo chmod 660 /var/run/pigpio.pid
+sudo pigpiod
