@@ -15,7 +15,8 @@
     const int IN1 = 24;
     const int IN2 = 23;
     const int ENA = 25;
-    
+    int G;
+    char secret[SHA256_DIGEST_LENGTH * 2 + 1];
    
 void init_openssl() {
     SSL_library_init();
@@ -111,9 +112,9 @@ int main() {
     // Exchange messages with the server and control the motor
     while (1) {
         
-         char secret[SHA256_DIGEST_LENGTH * 2 + 1];// Array to store SHA-256 hash
+         // Array to store SHA-256 hash
             strcpy(secret, "9");
-            int G = 0;
+            G = 0;
         // Receive message from the server
        
         bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
