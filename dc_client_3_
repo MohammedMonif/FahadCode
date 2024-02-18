@@ -1,0 +1,178 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <pigpio.h>
+#include "mfk.h"
+
+#define PORT 12345
+#define BUFFER_SIZE 1024
+
+   // Define GPIO pins for motor control (adjust as needed)
+    const int IN1 = 24;
+    const int IN2 = 23;
+    const int ENA = 25;
+    int G;
+    char secret[SHA256_DIGEST_LENGTH * 2 + 1];
+   SSL * ssl;
+void init_openssl() {
+    SSL_library_init();
+    SSL_load_error_strings();
+}
+
+SSL_CTX* create_context() {
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    method = SSLv23_client_method();
+    ctx = SSL_CTX_new(method);
+
+    if (!ctx) {
+        perror("Unable to create SSL context");
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    return ctx;
+}
+
+ 
+
+void startMotor() {
+    gpioWrite(IN1, 1);
+    gpioWrite(IN2, 0);
+    G=6;
+    strcpy(secret, check(secret, G));
+}
+
+void setSpeed(int speed) {
+    gpioPWM(ENA, speed);
+    G=7;
+    strcpy(secret, check(secret, G));
+    SSL_write(ssl, secret, strlen(secret));
+}
+
+void stopMotor() {
+    gpioWrite(IN1, 0);
+    gpioWrite(IN2, 0);
+    G=8;
+    strcpy(secret, check(secret, G));
+     SSL_write(ssl, secret, strlen(secret));
+}
+
+int main() {
+    int sock;
+    struct sockaddr_in server_addr;
+    char buffer[BUFFER_SIZE];
+    
+    init_openssl();
+    SSL_CTX *ctx = create_context();
+    
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    
+    if (inet_pton(AF_INET, "172.20.10.6", &server_addr.sin_addr) <= 0) {
+        perror("Invalid address/ Address not supported");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    SSL *ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sock);
+    
+    if (SSL_connect(ssl) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Receive message from the server
+    int bytes_received;
+    
+    
+    // Initialize GPIO for motor control
+    if (gpioInitialise() < 0) {
+        perror("pigpio initialisation failed");
+        exit(EXIT_FAILURE);
+    }
+        gpioSetMode(IN1, PI_OUTPUT);
+    gpioSetMode(IN2, PI_OUTPUT);
+    gpioSetMode(ENA, PI_OUTPUT);
+
+
+    // Exchange messages with the server and control the motor
+    while (1) {
+        
+         // Array to store SHA-256 hash
+            strcpy(secret, "9");
+            G = 0;
+        // Receive message from the server
+       
+        bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
+        if (bytes_received <= 0) {
+            perror("Error reading from server");
+            exit(EXIT_FAILURE);
+        }
+        buffer[bytes_received] = '\0';
+        printf("Received from server: %s\n", buffer);
+        
+        // Control the motor based on the received message
+        if (strcmp("r", buffer) == 0) {
+            G=1;
+            strcpy(secret, check(secret, G));
+            startMotor();
+            
+            printf("Motor started forward\n");
+            printf("h or l \n");
+            bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
+            if (strcmp("h", buffer) == 0) {
+                G=2;
+                strcpy(secret, check(secret, G));
+            setSpeed(80);  // Adjust high speed value as needed
+            printf("Motor set to high speed\n");
+        } else if (strcmp("l", buffer) == 0) {
+            G=3;
+            strcpy(secret, check(secret, G));
+            setSpeed(50);   // Adjust low speed value as needed
+        } 
+        
+        } else if (strcmp("s", buffer) == 0) {
+            G=4;
+            strcpy(secret, check(secret, G));
+            stopMotor();
+            printf("Motor stopped\n");
+        } else if (strcmp("q", buffer) == 0) {
+            G=5;
+            strcpy(secret, check(secret, G));
+			stopMotor();
+      printf("finish \n");
+      gpioTerminate();
+      return 0;  // Exit the program
+            break;  // Exit the loop if "quit" is received
+        } else {
+            printf("Invalid command from server\n");
+        }
+    }
+    
+    // Close the connection
+    SSL_shutdown(ssl);
+    close(sock);
+    SSL_CTX_free(ctx);
+    EVP_cleanup();
+    
+    // Clean up GPIO
+    gpioTerminate();
+    
+    return 0;
+}
