@@ -1,17 +1,22 @@
-// mfk.c
-#include "mfk.h" // Assuming you have this header file for any custom definitions
+#include "mfk.h" // You might need to create an mfk.h if you have more function declarations
 #include <stdio.h>
-#include <openssl/evp.h> // Only needed if you had other OpenSSL usage prior
+#include <openssl/evp.h>
+#include <openssl/sha.h> // For SHAKE128 
 #include <string.h>
-#include <blake2.h> //sudo apt-get install libblake2-dev
 
-char* blake2(const char* data) {
-    static char hash[BLAKE2B_OUTBYTES * 2 + 1]; // Size for Blake2b output
-    int outlen = BLAKE2B_OUTBYTES;
+char* shake128(const char* data) { // Using SHAKE128 with a 256-bit output
+    static char hash[SHA256_DIGEST_LENGTH * 2 + 1];
 
-    blake2b(hash, outlen, data, strlen(data), NULL, 0);
+    EVP_MD_CTX *mdctx;
+    const EVP_MD *md = EVP_shake128();
 
-    for (int i = 0; i < outlen; i++) {
+    mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(mdctx, md, NULL);
+    EVP_DigestUpdate(mdctx, data, strlen(data));
+    EVP_DigestFinalXOF(mdctx, (unsigned char*)hash, SHA256_DIGEST_LENGTH); 
+    EVP_MD_CTX_free(mdctx);
+
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(&hash[i * 2], "%02x", (unsigned int)hash[i]);
     }
 
@@ -24,7 +29,7 @@ char* check(const char* arg1, int arg2) {
     snprintf(result, sizeof(result), "%s%d", arg1, arg2);
 
     // Allocate memory for the result string
-    char* hashResult = blake2(result);
+    char* hashResult = shake128(result);
 
     return hashResult;
 }
