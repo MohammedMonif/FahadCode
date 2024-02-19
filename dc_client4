@@ -40,23 +40,34 @@ SSL_CTX* create_context() {
 }
 
 void startMotor() {
-    gpioWrite(IN1, 1);
-    gpioWrite(IN2, 0);
-    G=6;
+      int G=6;
+    
+    {gpioWrite(IN1, 1);
+    gpioWrite(IN2, 0);}
+    
     strcpy(secret, check(secret, G));
+    SSL_write(ssl, secret, strlen(secret));
+   
+    
 }
 
 void setSpeed(int speed) {
+      int G=7;
+   
     gpioPWM(ENA, speed);
-    G=7;
-    strcpy(secret, check(secret, G));
+    
+     strcpy(secret, check(secret, G));
     SSL_write(ssl, secret, strlen(secret));
+  
+    
 }
 
 void stopMotor() {
+    int G=8;
+    
     gpioWrite(IN1, 0);
     gpioWrite(IN2, 0);
-    G=8;
+    
     strcpy(secret, check(secret, G));
     SSL_write(ssl, secret, strlen(secret));
 }
@@ -77,7 +88,7 @@ int main() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     
-    if (inet_pton(AF_INET, "172.20.10.6", &server_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, "172.20.10.8", &server_addr.sin_addr) <= 0) {
         perror("Invalid address/ Address not supported");
         exit(EXIT_FAILURE);
     }
@@ -109,6 +120,8 @@ int main() {
 
     // Exchange messages with the server and control the motor
     while (1) {
+        int G =0;
+        strcpy(secret,"9" );
         fd_set readfds;
         FD_ZERO(&readfds);
         FD_SET(STDIN_FILENO, &readfds);
@@ -130,7 +143,7 @@ int main() {
             printf("Enter command ('r', 'h', 'l', 's', or 'q'): ");
             fgets(buffer, BUFFER_SIZE, stdin);
             buffer[strcspn(buffer, "\n")] = '\0';
-            SSL_write(ssl, buffer, strlen(buffer));
+            //SSL_write(ssl, buffer, strlen(buffer));
         }
 
         if (FD_ISSET(sock, &readfds)) {
@@ -145,32 +158,43 @@ int main() {
             if (strcmp("r", buffer) == 0) {
                 G=1;
                 strcpy(secret, check(secret, G));
+                 //SSL_write(ssl, secret, strlen(secret));
                 startMotor();
-                printf("Motor started forward\n");
-                printf("h or l \n");
+                
+                printf("Motor started forward\n"); 
+               
+                
+             
 
-               if (strcmp("h", buffer) == 0) {
+              
+            } 
+             else if (strcmp("h", buffer) == 0) {
                 G=2;
-                strcpy(secret, check(secret, G));
-                setSpeed(80);
-                printf("Motor high forward\n");}
+                   strcpy(secret, check(secret, G));
+                    //SSL_write(ssl, secret, strlen(secret));
+                   setSpeed(60); 
+                                  
+                printf("Motor high high \n");}
               else if  (strcmp("l", buffer) == 0) {
                 G=3;
                 strcpy(secret, check(secret, G));
-                setSpeed(50);
-                printf("Motor low forward\n");
+                 //SSL_write(ssl, secret, strlen(secret));
+                setSpeed(40);
+                 
+                printf("Motor low low\n");
               }
-              
-              
-            } else if (strcmp("s", buffer) == 0) {
+            else if (strcmp("s", buffer) == 0) {
                 G=4;
                 strcpy(secret, check(secret, G));
+                 //SSL_write(ssl, secret, strlen(secret));
                 stopMotor();
+                
                 printf("Motor stopped\n");
             } else if (strcmp("q", buffer) == 0) {
                 G=5;
                 strcpy(secret, check(secret, G));
                 stopMotor();
+                 //SSL_write(ssl, secret, strlen(secret));
                 printf("finish \n");
                 gpioTerminate();
                 return 0;  // Exit the program
