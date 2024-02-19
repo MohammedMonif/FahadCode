@@ -142,12 +142,12 @@ int main() {
         } else if (strcmp(buffer, "h") == 0) {
              G=3;
                 strcpy(secret, check(secret, G));
-            setSpeed(60);
+            setSpeed(70);
             printf("Motor set to high speed\n");
         } else if (strcmp(buffer, "l") == 0) {
              G=4;
                 strcpy(secret, check(secret, G));
-            setSpeed(40);
+            setSpeed(50);
             printf("Motor set to low speed\n");
         } else if (strcmp(buffer, "s") == 0) {
              G=5;
