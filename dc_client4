@@ -6,7 +6,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <pigpio.h>
-#include "mfk.h"
+#include "mfk.h" 
 
 #define PORT 12345
 #define BUFFER_SIZE 1024
@@ -14,12 +14,12 @@
 const int IN1 = 24;
 const int IN2 = 23;
 const int ENA = 25;
-int G;
 char secret[SHA256_DIGEST_LENGTH * 2 + 1];
-SSL *ssl;
+SSL *ssl; // Global SSL object
 
 void init_openssl() {
     SSL_library_init();
+    OpenSSL_add_ssl_algorithms();
     SSL_load_error_strings();
 }
 
@@ -27,7 +27,7 @@ SSL_CTX* create_context() {
     const SSL_METHOD *method;
     SSL_CTX *ctx;
 
-    method = SSLv23_client_method();
+    method = TLS_client_method(); // Use TLS_client_method() as SSLv23_client_method() is deprecated
     ctx = SSL_CTX_new(method);
 
     if (!ctx) {
@@ -39,178 +39,114 @@ SSL_CTX* create_context() {
     return ctx;
 }
 
+void cleanup_openssl() {
+    EVP_cleanup();
+}
+
+void handleErrorWithSSL(const char* message) {
+    perror(message);
+    ERR_print_errors_fp(stderr);
+    exit(EXIT_FAILURE);
+}
+
 void startMotor() {
-      int G=6;
+    gpioWrite(IN1, 1);
+    gpioWrite(IN2, 0);
     
-    {gpioWrite(IN1, 1);
-    gpioWrite(IN2, 0);}
-    
-    strcpy(secret, check(secret, G));
-    SSL_write(ssl, secret, strlen(secret));
-   
-    
+    strcpy(secret, check(secret, 6)); // Assuming 'check' modifies 'secret' safely
+    if (SSL_write(ssl, secret, strlen(secret)) <= 0) {
+        handleErrorWithSSL("SSL_write failed in startMotor");
+    }
 }
 
 void setSpeed(int speed) {
-      int G=7;
-   
     gpioPWM(ENA, speed);
     
-     strcpy(secret, check(secret, G));
-    SSL_write(ssl, secret, strlen(secret));
-  
-    
+    strcpy(secret, check(secret, 7));
+    if (SSL_write(ssl, secret, strlen(secret)) <= 0) {
+        handleErrorWithSSL("SSL_write failed in setSpeed");
+    }
 }
 
 void stopMotor() {
-    int G=8;
-    
     gpioWrite(IN1, 0);
     gpioWrite(IN2, 0);
     
-    strcpy(secret, check(secret, G));
-    SSL_write(ssl, secret, strlen(secret));
+    strcpy(secret, check(secret, 8));
+    if (SSL_write(ssl, secret, strlen(secret)) <= 0) {
+        handleErrorWithSSL("SSL_write failed in stopMotor");
+    }
 }
 
 int main() {
-    int sock;
     struct sockaddr_in server_addr;
     char buffer[BUFFER_SIZE];
     
     init_openssl();
     SSL_CTX *ctx = create_context();
     
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        handleErrorWithSSL("Socket creation failed");
     }
     
+    memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     
     if (inet_pton(AF_INET, "172.20.10.8", &server_addr.sin_addr) <= 0) {
-        perror("Invalid address/ Address not supported");
-        exit(EXIT_FAILURE);
+        handleErrorWithSSL("Invalid address/ Address not supported");
     }
     
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Connection failed");
-        exit(EXIT_FAILURE);
+        handleErrorWithSSL("Connection failed");
     }
     
-    SSL *ssl = SSL_new(ctx);
+    ssl = SSL_new(ctx);
     SSL_set_fd(ssl, sock);
     
-    if (SSL_connect(ssl) <= 0) {
-        ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
+    if (SSL_connect(ssl) != 1) {
+        handleErrorWithSSL("SSL_connect failed");
     }
     
-    // Receive message from the server
-    int bytes_received;
-    
-    // Initialize GPIO for motor control
     if (gpioInitialise() < 0) {
-        perror("pigpio initialisation failed");
-        exit(EXIT_FAILURE);
+        handleErrorWithSSL("pigpio initialisation failed");
     }
     gpioSetMode(IN1, PI_OUTPUT);
     gpioSetMode(IN2, PI_OUTPUT);
     gpioSetMode(ENA, PI_OUTPUT);
 
-    // Exchange messages with the server and control the motor
     while (1) {
-        int G =0;
-        strcpy(secret,"9" );
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-        FD_SET(sock, &readfds);
-
-        int max_fd = (STDIN_FILENO > sock) ? STDIN_FILENO : sock;
-
-        struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 0;
-
-        int activity = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
-
-        if ((activity < 0) && (errno != EINTR)) {
-            perror("select error");
-        }
-
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            printf("Enter command ('r', 'h', 'l', 's', or 'q'): ");
-            fgets(buffer, BUFFER_SIZE, stdin);
-            buffer[strcspn(buffer, "\n")] = '\0';
-            //SSL_write(ssl, buffer, strlen(buffer));
-        }
-
-        if (FD_ISSET(sock, &readfds)) {
-            bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
-            if (bytes_received <= 0) {
-                perror("Error reading from server");
-                exit(EXIT_FAILURE);
-            }
-            buffer[bytes_received] = '\0';
-            printf("Received from server: %s\n", buffer);
-            // Control the motor based on the received message
-            if (strcmp("r", buffer) == 0) {
-                G=1;
-                strcpy(secret, check(secret, G));
-                 //SSL_write(ssl, secret, strlen(secret));
-                startMotor();
-                
-                printf("Motor started forward\n"); 
-               
-                
-             
-
-              
-            } 
-             else if (strcmp("h", buffer) == 0) {
-                G=2;
-                   strcpy(secret, check(secret, G));
-                    //SSL_write(ssl, secret, strlen(secret));
-                   setSpeed(60); 
-                                  
-                printf("Motor high high \n");}
-              else if  (strcmp("l", buffer) == 0) {
-                G=3;
-                strcpy(secret, check(secret, G));
-                 //SSL_write(ssl, secret, strlen(secret));
-                setSpeed(40);
-                 
-                printf("Motor low low\n");
-              }
-            else if (strcmp("s", buffer) == 0) {
-                G=4;
-                strcpy(secret, check(secret, G));
-                 //SSL_write(ssl, secret, strlen(secret));
-                stopMotor();
-                
-                printf("Motor stopped\n");
-            } else if (strcmp("q", buffer) == 0) {
-                G=5;
-                strcpy(secret, check(secret, G));
-                stopMotor();
-                 //SSL_write(ssl, secret, strlen(secret));
-                printf("finish \n");
-                gpioTerminate();
-                return 0;  // Exit the program
-            } else {
-                printf("Invalid command from server\n");
-            }
+        printf("Enter command ('r', 'h', 'l', 's', or 'q'): ");
+        fgets(buffer, BUFFER_SIZE, stdin);
+        buffer[strcspn(buffer, "\n")] = '\0';
+        
+        if (strcmp(buffer, "q") == 0) {
+            stopMotor();
+            printf("Quitting\n");
+            break;
+        } else if (strcmp(buffer, "r") == 0) {
+            startMotor();
+            printf("Motor started forward\n");
+        } else if (strcmp(buffer, "h") == 0) {
+            setSpeed(60);
+            printf("Motor set to high speed\n");
+        } else if (strcmp(buffer, "l") == 0) {
+            setSpeed(40);
+            printf("Motor set to low speed\n");
+        } else if (strcmp(buffer, "s") == 0) {
+            stopMotor();
+            printf("Motor stopped\n");
+        } else {
+            printf("Invalid command\n");
         }
     }
     
-    // Close the connection
     SSL_shutdown(ssl);
+    SSL_free(ssl);
     close(sock);
     SSL_CTX_free(ctx);
-    EVP_cleanup();
-    
-    // Clean up GPIO
+    cleanup_openssl();
     gpioTerminate();
     
     return 0;
