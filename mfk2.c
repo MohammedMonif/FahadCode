@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <openssl/evp.h> // Only needed if you had other OpenSSL usage prior
 #include <string.h>
-#include <blake2.h> 
+#include <blake2.h> //sudo apt-get install libblake2-dev
 
 char* blake2(const char* data) {
     static char hash[BLAKE2B_OUTBYTES * 2 + 1]; // Size for Blake2b output
