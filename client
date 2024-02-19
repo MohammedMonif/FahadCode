@@ -1,0 +1,154 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include "mfk.h"
+
+#define PORT 12345
+#define BUFFER_SIZE 1024
+
+void init_openssl() {
+    SSL_library_init();
+    SSL_load_error_strings();
+}
+
+SSL_CTX* create_context() {
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    method = SSLv23_client_method();
+    ctx = SSL_CTX_new(method);
+
+    if (!ctx) {
+        perror("Unable to create SSL context");
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    return ctx;
+}
+
+void calculateSum(int n, SSL *ssl, char secret[]) {
+    int G = 2;
+    int sum = 0;
+
+    for (int i = 1; i <= n; i++) {
+        sum += i;
+    }
+
+    strcpy(secret, check(secret, G));
+    SSL_write(ssl, secret, strlen(secret));
+}
+void calculateMult(int n, SSL *ssl, char secret[]) {
+    int G = 7;
+    int Mult = 2;
+
+    for (int i = 1; i <= n; i++) {
+        Mult = Mult*i;
+    }
+
+    strcpy(secret, check(secret, G));
+    SSL_write(ssl, secret, strlen(secret));
+}
+void calculateSub(int n, SSL *ssl, char secret[]) {
+    int G = 9;
+    int sub = 5000;
+
+    for (int i = 1; i <= n; i++) {
+        sub -= i;
+    }
+
+    strcpy(secret, check(secret, G));
+    SSL_write(ssl, secret, strlen(secret));
+}
+
+int main() {
+    int client_fd;
+    struct sockaddr_in server_addr;
+
+    init_openssl();
+    SSL_CTX *ctx = create_context();
+
+    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+
+    if (inet_pton(AF_INET, "172.20.10.5", &server_addr.sin_addr) <= 0) {
+        perror("Invalid address/Address not supported");
+        exit(EXIT_FAILURE);
+    }
+
+    if (connect(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+
+    SSL *ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, client_fd);
+
+    if (SSL_connect(ssl) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    } else {
+        printf("SSL connection established!\n");
+
+        // Loop for two-way communication
+
+
+
+
+        while (1) {
+            char secret[SHA256_DIGEST_LENGTH * 2 + 1];// Array to store SHA-256 hash
+            strcpy(secret, "9");
+            int G = 0;
+            char message[BUFFER_SIZE];
+            int bytes_received;
+
+            // Receive message from the server
+            bytes_received = SSL_read(ssl, message, sizeof(message) - 1);
+            if (bytes_received <= 0) {
+                break; // Connection closed by the server
+            }
+            message[bytes_received] = '\0';
+
+
+            printf("Received from server: %s\n", message);
+
+
+            if (strcmp(message, "0") == 0) {
+                G = 8;
+                strcpy(secret, check(secret, G));
+                
+                calculateSub(20, ssl, secret);
+            } else if (strcmp(message, "1") == 0) {
+                G = 3;
+                strcpy(secret, check(secret, G));
+
+                calculateSum(10, ssl, secret);
+            }
+		else if (strcmp(message, "2") == 0) {
+                G = 6;
+                strcpy(secret, check(secret, G));
+
+                calculateMult(10, ssl, secret);
+            }
+
+
+        }
+
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+    }
+
+    close(client_fd);
+    SSL_CTX_free(ctx);
+    EVP_cleanup();
+    return 0;
+}
