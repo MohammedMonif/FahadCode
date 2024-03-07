@@ -160,6 +160,8 @@ int main() {
 
                 if(strcmp(buffer, "fd64363433363334333333363333333433333333333333363333333333333334") == 0){
                     printf("Safe\n");
+                    printf("Quitting\n");
+                    return 0;
 
                 }
                 else{
