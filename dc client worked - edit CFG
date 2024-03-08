@@ -147,7 +147,7 @@ int main() {
             
 				 if (strcmp(buffer, "h") == 0) {
 					G=3;
-					strcpy(secret, check(secret, 3));
+					strcpy(secret, check(secret, G));
 					setSpeed(70);
 					printf("Motor set to high speed\n");}
 					
